@@ -41,12 +41,17 @@ my $hbase = AnyEvent::Hbase->new(
 );
 
 my ( $status, $error ) = $hbase->connect;
+
 my $tables = eval { $hbase->getTableNames };
+
 if ($@) {
     print "Unable to getTableNames: " . ( ref($@) ? $@->{message} : $@ ) . "\n";
 }
 
-eval { $hbase->mutateRow( $table_name, 'row01', [ Hbase::Mutation->new({ column => 'cf:test', value => 'hello_world' }) ] ) };
+my $mutation = [ Hbase::Mutation->new({ column => 'cf:test', value => 'hello_world' }) ];
+
+eval { $hbase->mutateRow( $table_name, 'row01', $mutation ) };
+
 if ($@) {
     print "Unable to mutateRow: " . ( ref($@) ? $@->{message} : $@ ) . "\n";
 }
@@ -70,8 +75,9 @@ $hbase->connect(sub {
     $cv->end;
 });
 
-$cv->begin;
 my $tables;
+$cv->begin;
+
 $hbase->getTableNames(sub { 
     my ( $status, $result ) = @_;
     if ( $status ) {
@@ -82,8 +88,10 @@ $hbase->getTableNames(sub {
     $cv->end;
 });
 
+my $mutation = [ Hbase::Mutation->new({ column => 'cf:test', value => 'hello_world' }) ];
 $cv->begin;
-$hbase->mutateRow($table_name, 'row01', [ Hbase::Mutation->new({ column => 'cf:test', value => 'hello_world' }) ], sub {
+
+$hbase->mutateRow($table_name, 'row01', $mutation, sub {
     my ( $status, $result ) = @_;
     unless ( $status ) {
         print "Unable to mutateRow: " . ( ref($result) ? $result->{message} : $result ) . "\n";
@@ -94,9 +102,8 @@ $hbase->mutateRow($table_name, 'row01', [ Hbase::Mutation->new({ column => 'cf:t
 $cv->recv;
 ```
 
-For more examples, please check the included tests.
-
-Additional info [Hbase thrift API documentation]()
+For more examples, please check the included tests or read 
+[Hbase thrift API documentation](http://htmlpreview.github.io/?https://raw.githubusercontent.com/0x62ash/anyevent-hbase/master/doc/Hbase/Hbase.html)
 
 ## Benchmark
 
