@@ -107,22 +107,29 @@ For more examples, please check the included tests or read
 
 ## Benchmark
 
-This is quite dirty result from single node standalone HBase.
-
 ```text
+Hbase(Thrift) mutateRow: 36.8895 wallclock secs ( 3.22 usr +  0.40 sys =  3.62 CPU) @ 1381.22/s (n=5000)
+Hbase(Thrift) get: 24.4651 wallclock secs ( 5.68 usr +  0.40 sys =  6.08 CPU) @ 822.37/s (n=5000)
+Hbase(Thrift::XS) mutateRow: 32.2815 wallclock secs ( 2.72 usr +  0.36 sys =  3.08 CPU) @ 1623.38/s (n=5000)
+Hbase(Thrift::XS) get: 17.9919 wallclock secs ( 4.60 usr +  0.42 sys =  5.02 CPU) @ 996.02/s (n=5000)
+AnyEvent::Hbase mutateRow: 29.6131 wallclock secs ( 2.60 usr +  0.41 sys =  3.01 CPU) @ 1661.13/s (n=5000)
+AnyEvent::Hbase get: 16.8168 wallclock secs ( 3.01 usr +  0.43 sys =  3.44 CPU) @ 1453.49/s (n=5000)
+AnyEvent::Hbase(async) mutateRow: 17.2016 wallclock secs ( 1.54 usr +  0.16 sys =  1.70 CPU) @ 2941.18/s (n=5000)
+AnyEvent::Hbase(async) get: 4.84589 wallclock secs ( 2.05 usr +  0.10 sys =  2.15 CPU) @ 2325.58/s (n=5000)
+
 Benchmark for mutateRow
-                          Rate Hbase(Thrift) AnyEvent::Hbase Hbase(Thrift::XS) AnyEvent::Hbase(async)
-Hbase(Thrift)           3546/s            --            -26%              -33%                   -76%
-AnyEvent::Hbase         4808/s           36%              --               -9%                   -67%
-Hbase(Thrift::XS)       5263/s           48%              9%                --                   -64%
-AnyEvent::Hbase(async) 14706/s          315%            206%              179%                     --
+                        Rate Hbase(Thrift) Hbase(Thrift::XS) AnyEvent::Hbase AnyEvent::Hbase(async)
+Hbase(Thrift)          136/s            --              -12%            -20%                   -53%
+Hbase(Thrift::XS)      155/s           14%                --             -8%                   -47%
+AnyEvent::Hbase        169/s           25%                9%              --                   -42%
+AnyEvent::Hbase(async) 291/s          114%               88%             72%                     --
 
 Benchmark for getRow
-                          Rate Hbase(Thrift) Hbase(Thrift::XS) AnyEvent::Hbase AnyEvent::Hbase(async)
-Hbase(Thrift)           2551/s            --              -15%            -45%                   -89%
-Hbase(Thrift::XS)       3012/s           18%                --            -35%                   -87%
-AnyEvent::Hbase         4630/s           81%               54%              --                   -81%
-AnyEvent::Hbase(async) 23810/s          833%              690%            414%                     --
+                         Rate Hbase(Thrift) Hbase(Thrift::XS) AnyEvent::Hbase AnyEvent::Hbase(async)
+Hbase(Thrift)           204/s            --              -26%            -31%                   -80%
+Hbase(Thrift::XS)       278/s           36%                --             -7%                   -73%
+AnyEvent::Hbase         297/s           45%                7%              --                   -71%
+AnyEvent::Hbase(async) 1032/s          405%              271%            247%                     --
 ```
 
 ## License

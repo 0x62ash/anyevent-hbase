@@ -3,15 +3,13 @@
 use strict;
 use warnings;
 
-use lib 'lib';
-
 use AnyEvent::Hbase;
 use Thrift::Socket;
 use Thrift::FramedTransport;
 use Thrift::BinaryProtocol;
 use Thrift::XS;
 
-use Benchmark qw(:all);
+use Benchmark qw(:all :hireswallclock);
 
 use Data::Dumper;
 
@@ -19,7 +17,7 @@ my $host = $ARGV[0] || "127.0.0.1";
 my $port = $ARGV[1] || 9090;
 my $table_name_prefix = 'bench';
 my $buffer_size = 8192;
-my $timeout = 3;
+my $timeout = 15;
 my $transport; # Thrift::XS::BinaryProtocol needs global variable for Thrift::FramedTransport transport. Dont ask me why...
 
 sub _connect {
@@ -40,6 +38,7 @@ sub _connect {
 
         if ($@) {
             warn "Thrift: unable to connect: ".( ref($@) ? $@->{message} : $@ ).".\n";
+            return;
         }
 
         $hbase->{transport} = $transport;
@@ -60,6 +59,7 @@ sub _connect {
 
         if ($@) {
             warn "Thrift (XS): unable to connect: ".( ref($@) ? $@->{message} : $@ ).".\n";
+            return;
         }
 
         $hbase->{transport} = $transport;
@@ -70,10 +70,14 @@ sub _connect {
             host        => $host . ':' . $port,
             timeout     => $timeout,
             buffer_size => $buffer_size,
-            #debug      => 1,
+            #debug       => 1,
         );
 
-        $hbase->connect->recv;
+        my ( $status, $error ) = $hbase->connect->recv;
+        unless ($status) {
+            warn "AnyEvent::Hbase: unable to connect: $error\n";
+            return;
+        }
 
         return $hbase;
     }
@@ -93,9 +97,8 @@ sub _disconnect {
 }
 
 
-my %t_mut;
-my %t_get;
-my $count = 5_000;
+my (%mut, %get);
+my $count = 1000;
 my $bigstr; $bigstr .= ('a'..'z', 'A'..'Z', 0..9)[rand 62] for (1..512);
 my $key_fmt = 'foooo:baaaaar:iter:%010d'; # fixed len keys
 
@@ -111,24 +114,43 @@ eval {
         print "test $_\n";
 
         my $hbase = _connect($_, $host, $port);
+        next unless $hbase;
 
         $hbase->createTable($table_name, [ Hbase::ColumnDescriptor->new({ name => 'cf' }) ])
             unless grep { $_ eq $table_name } @{ $hbase->getTableNames };
 
-        my $iter = 0;
+        my $t0;
         if ($_ =~ m/async/) {
-            my $cv = AnyEvent->condvar;
-            $t_mut{$_} = timethis($count, sub { $cv->begin; $hbase->mutateRow($table_name, sprintf($key_fmt, $iter), $mutations, sub { $cv->end }); $iter++ }, $_." mutate");
-            $cv->recv;
-            $iter = 0;
-            $cv = AnyEvent->condvar;
-            $t_get{$_} = timethis($count, sub { $cv->begin; $hbase->getRow($table_name, sprintf($key_fmt, $iter), sub { $cv->end }); $iter++ }, $_." get");
-            $cv->recv;
+            my $cv;
+            $t0 = Benchmark->new;
+                $cv = AnyEvent->condvar;
+                for my $i (1..$count) {
+                    $cv->begin;
+                    $hbase->mutateRow($table_name, sprintf($key_fmt, $i), $mutations, sub { warn $_[1] unless $_[0]; $cv->end });
+                }
+                $cv->recv;
+            $mut{$_} = timediff(Benchmark->new, $t0);
+            $t0 = Benchmark->new;
+                $cv = AnyEvent->condvar;
+                for my $i (1..$count) {
+                    $cv->begin;
+                    $hbase->getRow($table_name, sprintf($key_fmt, $i), sub { warn $_[1] unless $_[0]; $cv->end });
+                }
+                $cv->recv;
+            $get{$_} = timediff(Benchmark->new, $t0);
         } else {
-            $t_mut{$_} = timethis($count, sub { $hbase->mutateRow($table_name, sprintf($key_fmt, $iter), $mutations); $iter++ }, $_." mutate");
-            $iter = 0;
-            $t_get{$_} = timethis($count, sub { $hbase->getRow($table_name, sprintf($key_fmt, $iter)); $iter++ }, $_." get");
+            $t0 = Benchmark->new;
+                for my $i (1..$count) { $hbase->mutateRow($table_name, sprintf($key_fmt, $i), $mutations); }
+            $mut{$_} = timediff(Benchmark->new, $t0);
+            $t0 = Benchmark->new;
+                for my $i (1..$count) { $hbase->getRow($table_name, sprintf($key_fmt, $i)); }
+            $get{$_} = timediff(Benchmark->new, $t0);
         }
+
+        # we want real counts in timestr
+        $mut{$_}->[-1] = $get{$_}->[-1] = $count;
+        print "$_ mutateRow: ",timestr($mut{$_}),"\n";
+        print "$_ get: ",timestr($get{$_}),"\n";
 
         # cleanup
 
@@ -140,7 +162,11 @@ eval {
 };
 die "Got error: ".Dumper($@) if $@;
 
+# because we measure over network, we want operations per wallclock, not usr+sys
+@{ $mut{$_} }[1,2] = ($mut{$_}->[0], 0) for keys %mut;
+@{ $get{$_} }[1,2] = ($get{$_}->[0], 0) for keys %get; 
+
 print "\nBenchmark for mutateRow\n";
-cmpthese(\%t_mut);
+cmpthese(\%mut);
 print "\nBenchmark for getRow\n";
-cmpthese(\%t_get);
+cmpthese(\%get);
