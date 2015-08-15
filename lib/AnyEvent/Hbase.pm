@@ -179,7 +179,7 @@ sub _call {
     my $send = "send_${method}";
     my $recv = "recv_${method}";
     
-    unless ( $cb ) {
+    unless ($cb) {
         $cb ||= AnyEvent->condvar;
     }
 
@@ -187,7 +187,7 @@ sub _call {
         after => $self->{timeout},
         cb    => sub {
             warn "<< $method [TIMEOUT]\n" if $self->{debug};
-            $self->_error("Request $method timed out", $cb);
+            $cb->( 0, "Request $method timed out" );
         }
     );
 
@@ -215,7 +215,6 @@ sub _call {
                     local $Data::Dumper::Indent = 0;
                     warn "<< $method [ERROR] " . Data::Dumper::Dumper($@) . "\n";
                 };
-                #$self->_error($@, $cb);
                 $cb->( 0, $@ );
             }
             else {
@@ -225,12 +224,6 @@ sub _call {
         } );
     } );
     
-    #if ($sync) {
-    #    my ($status, $result) = $cb->recv;
-    #    return $status ? $result : croak $result;
-    #} else {
-    #    return $cb;
-    #}
     if (ref $cb ne 'CODE') {
         my ($status, $result) = $cb->recv;
         return $status ? $result : $self->_error( $result );

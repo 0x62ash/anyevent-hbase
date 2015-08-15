@@ -36,8 +36,8 @@ eval { $hbase->mutateRow( '___', [] ); };
 ok( $@, "Test error handling" );
 
 
-my $tables = eval { $hbase->getTableNames } or diag( Dumper($@) );
-ok( $tables, "Get tables names" );
+my $tables = eval { $hbase->getTableNames };
+ok( $tables, "Get tables names" ) or diag( Dumper($@) );
 
 
 unless (grep { $_ eq $table_name } @{ $tables }) {
@@ -71,13 +71,13 @@ ok( !$@, "Mutate batch of rows" ) or diag( Dumper($@) );
 
 
 my $row = eval { $hbase->getRow( $table_name, 'row01' ) };
-ok( !$@, "Get row" );
-is( $row->[0]->columns->{'cf:test'}->value, 'hello_world', "Check row value" );
+ok( !$@, "Get row" ) or diag( Dumper($@) );
+is( $row->[0]->columns->{'cf:test'}->value, 'hello_world', "Check row value" ) unless $@;
 
 
 my $rows = eval { $hbase->getRows( $table_name, [ 'row02', 'row03' ] ) };
-ok( !$@, "Get rows" );
-is( $rows->[1]->columns->{'cf:flt'}->value, -3.14, "Check row value" );
+ok( !$@, "Get rows" ) or diag( Dumper($@) );
+is( $rows->[1]->columns->{'cf:flt'}->value, -3.14, "Check row value" ) unless $@;
 
 
 my $all_rows;
@@ -92,8 +92,8 @@ eval {
     $hbase->scannerClose($scanner);
 };
 
-ok( !$@, "Check scanner" );
-ok( ( grep { $_->row eq 'row02' } @$all_rows ), "Check scanner result" );
+ok( !$@, "Check scanner" ) or diag( Dumper($@) );
+ok( (grep { $_->row eq 'row02' } @$all_rows), "Check scanner result" ) unless $@;
 
 
 $hbase->close;
