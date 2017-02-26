@@ -1,5 +1,7 @@
 # AnyEvent::Hbase
 
+[![Kritika Status](https://kritika.io/users/0x62ash/repos/anyevent-hbase/heads/master/status.svg)](https://kritika.io/users/0x62ash/repos/anyevent-hbase/)
+
 AnyEvent::Hbase is asynchronous thrift API for HBase.
 
 Internally it's wrapper around Hbase thrift library. API is the same, so you can easily migrate without breaking compatibility and use async calls only where you need it.
